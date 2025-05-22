@@ -2,22 +2,25 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 # Load column names
-columns = open("data/Faults27x7_var").read().splitlines()
+#columns = open("data/Faults27x7_var").read().splitlines()
 
 # Read dataset using whitespace as separator
-steel_data = pd.read_csv("data/Faults.NNA", sep=r'\s+', header=None, names=columns)
+steel_data = pd.read_csv("data/Faults.csv")
 
+#steel_data.to_csv('Faults.csv', index=False)
+print(steel_data.describe())
 # Show first few rows and structure
 print(steel_data.head())
 print(steel_data.info())
 
 # Plot how many times each fault type appears
-fault_types = steel_data.columns[-7:]  # Last 7 columns are fault types
-steel_data[fault_types].sum().plot(kind='bar')
-plt.title("Distribution of Fault Types")
-plt.ylabel("Number of Faults")
-plt.show()
+#fault_types = steel_data.columns[-7:]  # Last 7 columns are fault types
+#steel_data[fault_types].sum().plot(kind='bar')
+#plt.title("Distribution of Fault Types")
+#plt.ylabel("Number of Faults")
+#plt.show()
 
 # Choose one fault type to classify — binary classification (0 or 1)
 target_fault = 'Pastry'
@@ -58,6 +61,7 @@ def knn_predict(X_train, y_train, x_test, num_neighbors=3):
 # Run prediction for each test point
 k_neighbors = 5  # Number of neighbors
 predictions = []  # To store all predicted values
+print(predictions)
 
 for test_idx in range(len(X_test)):
     pred = knn_predict(X_train, y_train, X_test[test_idx], num_neighbors=k_neighbors)
@@ -69,14 +73,14 @@ accuracy = correct / len(y_test)
 print(f"KNN Accuracy (k={k_neighbors}) for fault type '{target_fault}': {accuracy:.2f}")
 
 # 1. Visualization of Actual vs Predicted values
-plt.figure(figsize=(10, 6))
-plt.scatter(range(len(y_test)), y_test, color='blue', label='Actual')
-plt.scatter(range(len(predictions)), predictions, color='red', alpha=0.5, label='Predicted')
-plt.title('Actual vs Predicted values')
-plt.xlabel('Test Data Points')
-plt.ylabel('Fault Type')
-plt.legend()
-plt.show()
+#plt.figure(figsize=(10, 6))
+#plt.scatter(range(len(y_test)), y_test, color='blue', label='Actual')
+#plt.scatter(range(len(predictions)), predictions, color='red', alpha=0.5, label='Predicted')
+#plt.title('Actual vs Predicted values')
+#plt.xlabel('Test Data Points')
+#plt.ylabel('Fault Type')
+#plt.legend()
+#plt.show()
 
 # Confusion Matrix
 # Confusion matrix is a 2x2 matrix for binary classification
@@ -93,9 +97,9 @@ plt.title('Confusion Matrix')
 plt.colorbar()
 classes = ['No Fault', 'Fault']
 tick_marks = np.arange(len(classes))
-plt.xticks(tick_marks, classes)
-plt.yticks(tick_marks, classes)
+#plt.xticks(tick_marks, classes)
+#plt.yticks(tick_marks, classes)
 
-plt.ylabel('True label')
-plt.xlabel('Predicted label')
-plt.show()
+#plt.ylabel('True label')
+#plt.xlabel('Predicted label')
+#plt.show()
