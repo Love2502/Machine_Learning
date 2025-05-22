@@ -34,11 +34,12 @@ Python version 3.7 or above is required.
 - numpy
 - pandas
 - matplotlib
+- seaborn
 
 You can install these packages using pip:
 
 ```bash
-  pip install numpy pandas matplotlib
+  pip install numpy pandas matplotlib seaborn
 ```
 
 ### Creating a Virtual Environment (Recommended)
