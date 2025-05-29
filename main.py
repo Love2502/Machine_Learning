@@ -1,26 +1,37 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from ucimlrepo import fetch_ucirepo
 
+file_path = "data/Faults.csv"
 
-# Load column names
-#columns = open("data/Faults27x7_var").read().splitlines()
+# Checks if dataset file exists
+if os.path.exists(file_path):
+    print("Loading dataset into memory")
+    steel_data = pd.read_csv(file_path)
+else:
+    print("Dataset not found in /data")
+    print("Downloading dataset from https://archive.ics.uci.edu/dataset/198/steel+plates+faults")
+    # Fetch dataset from UCI
+    # Source of this code: https://archive.ics.uci.edu/dataset/198/steel+plates+faults
+    steel_plates_faults = fetch_ucirepo(id=198)
+    
+    # Extract features and targets
+    X = steel_plates_faults.data.features
+    y = steel_plates_faults.data.targets
 
-# Read dataset using whitespace as separator
-steel_data = pd.read_csv("data/Faults.csv")
+    # Combine into one DataFrame
+    steel_data = pd.concat([X, y], axis=1)
 
-#steel_data.to_csv('Faults.csv', index=False)
+    # Ensure the data directory exists
+    os.makedirs("data", exist_ok=True)
+    steel_data.to_csv(file_path, index=False)
+
+# Continue with analysis
 print(steel_data.describe())
-# Show first few rows and structure
 print(steel_data.head())
 print(steel_data.info())
-
-# Plot how many times each fault type appears
-#fault_types = steel_data.columns[-7:]  # Last 7 columns are fault types
-#steel_data[fault_types].sum().plot(kind='bar')
-#plt.title("Distribution of Fault Types")
-#plt.ylabel("Number of Faults")
-#plt.show()
 
 # Choose one fault type to classify — binary classification (0 or 1)
 target_fault = 'Pastry'
