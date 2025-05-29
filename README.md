@@ -19,8 +19,9 @@ Currently, the implementation includes a custom k-Nearest Neighbors (KNN) classi
 
 ```
 ├── data/
-│   ├── Faults.NNA              # Raw dataset
+│   ├── Faults.NNA              # Raw dataset with no column names
 │   └── Faults27x7_var          # List of column names
+│   └── Faults.csv              # The complete dataset with the column names
 ├── main.py                     # Script containing model implementation and evaluation
 ├── README.md                   # Project documentation
 ```
@@ -35,62 +36,33 @@ Python version 3.7 or above is required.
 - pandas
 - matplotlib
 - seaborn
+- ucimlrepo (needed to download the dataset if it doesn't exist)
 
 You can install these packages using pip:
 
-```bash
-  pip install numpy pandas matplotlib seaborn
-```
 
 ### Creating a Virtual Environment (Recommended)
 
 ```bash
-  python -m venv venv
-  # Activate the environment:
+  python -m venv .venv
+
+  # Then Activate the environment:
+
   # On Windows:
   venv\Scripts\activate
-  # On macOS/Linux:
-  source venv/bin/activate
 
+  # On macOS/Linux:
+  source .venv/bin/activate
+
+  # Install dependences
   pip install -r requirements.txt
 ```
 
-Contents of `requirements.txt`:
-
-```
-numpy
-pandas
-matplotlib
-```
-
-## Operating System Specific Setup
-
-### Windows
-
-1. Install Python from the official website: https://www.python.org/downloads/windows/
-2. Open Command Prompt and run:
-```bash
-  pip install numpy pandas matplotlib
-```
-
-### Linux
-
-```bash
-  sudo apt update
-  sudo apt install python3-pip
-  pip3 install numpy pandas matplotlib
-```
-
-### macOS
-
-```bash
-  brew install python
-  pip3 install numpy pandas matplotlib
-```
 
 ## How to Run
 
-1. Ensure the dataset files (`Faults.NNA` and `Faults27x7_var`) are placed inside a `data/` directory.
+1. Ensure the dataset files (`Faults.NNA` and `Faults27x7_var`) are placed inside a `data/` directory. Otherwise install the `ucimlrepo` library.
+
 2. Run the main script using:
 
 ```bash
