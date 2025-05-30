@@ -50,6 +50,8 @@ You can install these packages using pip:
 
   # On Windows:
   venv\Scripts\activate
+  or 
+  .venv/Scripts/Activate.ps1
 
   # On macOS/Linux:
   source .venv/bin/activate
