@@ -9,7 +9,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-file_path = "data/Faults.csv"
+file_path = os.path.join("data", "Faults.csv")
 
 # Checks if dataset file exists
 if os.path.exists(file_path):
@@ -143,8 +143,35 @@ print("Selected features:", selected_features)
 
 X = steel_data[list(selected_features)]
 
+df_features_selected = pd.concat([X,y], axis=1)
+
+####################
+
+# Remove outliers
+def outliars(data):
+    for col in data.select_dtypes(include='number').columns:
+        q1 = data[col].quantile(0.25)
+        q3 = data[col].quantile(0.75)
+        iqr = q3 - q1
+        lower = q1 - 1.5 * iqr
+        upper = q3 + 1.5 * iqr
+        data = data[(data[col] >= lower) & (data[col] <= upper)]
+    return data
+
+X_cleaned = outliars(df_features_selected)
+
+X = X_cleaned.iloc[:, :-7]  
+y = X_cleaned.iloc[:, -7:]
+
+# scaler = StandardScaler()
+# df_standardized = pd.DataFrame(scaler.fit_transform(df_cleaned), columns=df_cleaned.columns)
+    
+ ####################   
+ 
 # Perform train-test split (e.g., 80% train, 20% test)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=23)
+
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=23, stratify=y_labels)
 
 # Check shapes
 print("Train features shape:", X_train.shape)
@@ -178,13 +205,21 @@ for k in range(1,10):
     # Step 6: Output
     print(f"Average of diagonal (mean class-wise accuracy) for KNN with k = {k}: {avg_diag:.4f}")
     
+    disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix)
+    disp.plot(cmap='Blues', xticks_rotation=45)
+    plt.title(f"Relative Confusion Matrix for KNN Classifier for {k}")
+    plt.show()
+        
     if avg_diag > bestAcc:
         bestK, bestAcc = k, avg_diag
+
+
+
 
     
 # Step 7: Plot
 
-print("After iterating through the values of K, the best ones is {bestK}")
+print(f"After iterating through the values of K, the best ones is {bestK}")
 
  # Step 2: Train KNN
 knn = KNeighborsClassifier(n_neighbors=bestK)
