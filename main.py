@@ -14,11 +14,13 @@ file_path = os.path.join("data", "Faults.csv")
 # ============================================================================================
 # ==================================== Data Loading ==========================================
 # ============================================================================================
+
 # Checks if dataset file exists
 if os.path.exists(file_path):
     print("Loading dataset into memory")
     steel_data = pd.read_csv(file_path)
-else:
+    
+else: # If not we download it
     print("Dataset not found in /data")
     print("Downloading dataset from https://archive.ics.uci.edu/dataset/198/steel+plates+faults")
     # Fetch dataset from UCI
@@ -36,13 +38,19 @@ else:
     os.makedirs("data", exist_ok=True)
     steel_data.to_csv(file_path, index=False)
 
-# Continue with analysis
+
+# # Randomize the dataset
+# steel_data = steel_data.sample(frac=1, random_state=12).reset_index(drop=True) # Not neccesarry as we can randomize when doing the test-train split
+
+# ============================================================================================
+#                            Exploratory Data Analysis
+# ============================================================================================
+
+print("\n================= Exploring the data =================")
 print(steel_data.describe())
 print(steel_data.head())
 print(steel_data.info())
 
-# # Randomize the dataset
-# steel_data = steel_data.sample(frac=1, random_state=12).reset_index(drop=True)
 
 steel_classes = steel_data[steel_data.columns[-7:]]
 
@@ -81,6 +89,10 @@ plt.show()
 X = steel_data.iloc[:, :-7]  # adjust depending on actual target columns
 y = steel_data.iloc[:, -7:]  # 7 target fault types
     
+# =============================================================================
+#                            Feature Selection
+# =============================================================================
+print("\n================= Selecting Features =================")
     
 # Tests different sets of features and checks the accuracy on the KNN Classifier 
 def trainAndTest(selected_features): 
@@ -105,15 +117,11 @@ def trainAndTest(selected_features):
     conf_matrix = confusion_matrix(y_test_labels, y_pred_labels, normalize='true')
     avg_diag = np.trace(conf_matrix) / conf_matrix.shape[0]
     
-    # Format the output with fixed width for alignment
-    features_str = str(selected_features).ljust(150)  # Adjust 40 based on your longest feature list
-    print(f"Features: {features_str} Accuracy: {avg_diag:>7.4f}")  # Right-aligned with 4 decimal places
+    # Format the output with fixed width for alignment (Not important)
+    features_str = str(selected_features).ljust(150)  
+    print(f"Features: {features_str} Accuracy: {avg_diag:>7.4f}")  
     
     return avg_diag
-
-# --------------------------------------------------------------------------------------------
-# --------------------------------- Data Preprocessing ----------------------------------------
-# --------------------------------------------------------------------------------------------
 
 
 def forward_feature_selection(all_features, MAXF):
@@ -146,81 +154,87 @@ all_features = list(X)
 MAXF = 5  # Maximum number of features to select
 
 selected_features = forward_feature_selection(all_features, MAXF)
-print("Selected features:", selected_features)
+print("Selected features: ", selected_features)
 
 X = steel_data[list(selected_features)]
 
-
-
+# Make a new df with the fewer features
 df_features_selected = pd.concat([X,y], axis=1)
 
+
+# =============================================================================
+#                            Data Cleaning
+# =============================================================================
+
+# print("\n================= Removing the Outlier =================")
+
+# # Remove outliers
+# def outliars(data):
+#     for col in data.select_dtypes(include='number').columns:
+#         q1 = data[col].quantile(0.25)
+#         q3 = data[col].quantile(0.75)
+#         iqr = q3 - q1
+#         lower = q1 - 1.5 * iqr
+#         upper = q3 + 1.5 * iqr
+#         data = data[(data[col] >= lower) & (data[col] <= upper)]
+#     return data
+
+# df_cleaned = outliars(df_features_selected)
+
+# cleaned_classes = df_cleaned[df_cleaned.columns[-7:]]
+
+
+# =============================================================================
+#                   Data Visualization of the cleaned data
+# =============================================================================
+
+# print("\n================= Visualizing the Data after cleaning =================")
+
+# class_counts = cleaned_classes.sum()
+
+# # Bar plot
+# plt.figure(figsize=(10, 6))
+# bars = plt.bar(class_counts.index, class_counts.values)
+
+# plt.title('Steel Fault Class Distribution after Outlier removal')
+# plt.xlabel('Fault Class')
+# plt.ylabel('Number of Instances')
+
+# # Add numbers on top of bars
+# for bar in bars:
+#     yval = bar.get_height()
+#     plt.text(bar.get_x() + bar.get_width()/2, yval + 5, int(yval), 
+#              ha='center', va='bottom', fontsize=10)
+
+# plt.tight_layout()
+# plt.show()
+
+
+# # This code was used to generate reports on the data after outliers were removed
+# '''
 # from ydata_profiling import ProfileReport
 
 # profile = ProfileReport(df_features_selected, title="df_features_selected Report")
 # profile.to_file("df_features_selected_report.html")
 
-####################
-
-# Remove outliers
-def outliars(data):
-    for col in data.select_dtypes(include='number').columns:
-        q1 = data[col].quantile(0.25)
-        q3 = data[col].quantile(0.75)
-        iqr = q3 - q1
-        lower = q1 - 1.5 * iqr
-        upper = q3 + 1.5 * iqr
-        data = data[(data[col] >= lower) & (data[col] <= upper)]
-    return data
-
-df_cleaned = outliars(df_features_selected)
-
-cleaned_classes = df_cleaned[df_cleaned.columns[-7:]]
-
-###############$$$$$$$$$-------------------
-
-# Checks if the data is ordered by classes
-label_series = cleaned_classes.idxmax(axis=1)
-plt.figure(figsize=(14, 4))
-plt.plot(label_series.reset_index(drop=True), marker='.', linestyle='none')
-plt.title('Class Distribution Over Row Index')
-plt.ylabel('Class')
-plt.xlabel('Row Index')
-plt.xticks(ticks=range(0, len(label_series), 100))
-plt.show()
-
-class_counts = cleaned_classes.sum()
-
-# Bar plot
-plt.figure(figsize=(10, 6))
-bars = plt.bar(class_counts.index, class_counts.values)
-
-plt.title('Steel Fault Class Distribution')
-plt.xlabel('Fault Class')
-plt.ylabel('Number of Instances')
-
-# Add numbers on top of bars
-for bar in bars:
-    yval = bar.get_height()
-    plt.text(bar.get_x() + bar.get_width()/2, yval + 5, int(yval), 
-             ha='center', va='bottom', fontsize=10)
-
-plt.tight_layout()
-plt.show()
-
 # profile = ProfileReport(df_cleaned, title="df_cleaned Report")
 # profile.to_file("df_cleaned_report.html")
+# '''
 
-print(df_cleaned.head())
-print(df_cleaned.describe())
-print(df_cleaned.shape)
+# print(df_cleaned.head())
+# print(df_cleaned.describe())
+# print(df_cleaned.shape)
 
-X = df_cleaned.iloc[:, :-7]  
-y = df_cleaned.iloc[:, -7:]
+# X = df_cleaned.iloc[:, :-7]  
+# y = df_cleaned.iloc[:, -7:]
 
-# scaler = StandardScaler()
-# df_standardized = pd.DataFrame(scaler.fit_transform(df_cleaned), columns=df_cleaned.columns)  
-# Perform train-test split (e.g., 80% train, 20% test)
+
+# =============================================================================
+#                            Data Splitting
+# =============================================================================
+print("\n================= Splitting the Data =================")
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=23)
+
 
 # Check shapes
 print("Train features shape:", X_train.shape)
@@ -228,10 +242,16 @@ print("Test features shape:", X_test.shape)
 print("Train labels shape:", y_train.shape)
 print("Test labels shape:", y_test.shape)
 
+# =============================================================================
+#                            Data Scaling / Normalization
+# =============================================================================
+print("\n================= Scaling / Normalizing Data =================")
+
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
+print("Data was standardized")
 
 
 # ************************************************************************************
