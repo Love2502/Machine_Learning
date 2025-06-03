@@ -171,7 +171,7 @@ y = X_cleaned.iloc[:, -7:]
 # Perform train-test split (e.g., 80% train, 20% test)
 
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=23, stratify=y_labels)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=23)
 
 # Check shapes
 print("Train features shape:", X_train.shape)
