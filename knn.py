@@ -67,6 +67,6 @@ X_train, X_test, y_train, y_test = train_test_split(X_selected, y_all, test_size
 predictions = [knn_predict(X_train, y_train, x, k=5) for x in X_test]
 accuracy = sum([predictions[i] == y_test.iloc[i] for i in range(len(y_test))]) / len(y_test)
 
-# ✅ 8. Output results
+#8. Output results
 print("\nKNN Accuracy on selected features:", round(accuracy * 100, 2), "%")
 print("End Time:", time.process_time())

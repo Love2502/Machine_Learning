@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler
 def load_preprocessed_data(fault_type='Stains', k_features=6):
     data = pd.read_csv("data/Faults.csv")
 
+
     X = data.iloc[:, :-7]
     y = data[fault_type]
 
