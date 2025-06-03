@@ -11,6 +11,9 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 file_path = os.path.join("data", "Faults.csv")
 
+# ============================================================================================
+# ==================================== Data Loading ==========================================
+# ============================================================================================
 # Checks if dataset file exists
 if os.path.exists(file_path):
     print("Loading dataset into memory")
@@ -108,6 +111,10 @@ def trainAndTest(selected_features):
     
     return avg_diag
 
+# --------------------------------------------------------------------------------------------
+# --------------------------------- Data Preprocessing ----------------------------------------
+# --------------------------------------------------------------------------------------------
+
 
 def forward_feature_selection(all_features, MAXF):
     selected = []
@@ -143,7 +150,14 @@ print("Selected features:", selected_features)
 
 X = steel_data[list(selected_features)]
 
+
+
 df_features_selected = pd.concat([X,y], axis=1)
+
+# from ydata_profiling import ProfileReport
+
+# profile = ProfileReport(df_features_selected, title="df_features_selected Report")
+# profile.to_file("df_features_selected_report.html")
 
 ####################
 
@@ -158,19 +172,54 @@ def outliars(data):
         data = data[(data[col] >= lower) & (data[col] <= upper)]
     return data
 
-X_cleaned = outliars(df_features_selected)
+df_cleaned = outliars(df_features_selected)
 
-X = X_cleaned.iloc[:, :-7]  
-y = X_cleaned.iloc[:, -7:]
+cleaned_classes = df_cleaned[df_cleaned.columns[-7:]]
+
+###############$$$$$$$$$-------------------
+
+# Checks if the data is ordered by classes
+label_series = cleaned_classes.idxmax(axis=1)
+plt.figure(figsize=(14, 4))
+plt.plot(label_series.reset_index(drop=True), marker='.', linestyle='none')
+plt.title('Class Distribution Over Row Index')
+plt.ylabel('Class')
+plt.xlabel('Row Index')
+plt.xticks(ticks=range(0, len(label_series), 100))
+plt.show()
+
+class_counts = cleaned_classes.sum()
+
+# Bar plot
+plt.figure(figsize=(10, 6))
+bars = plt.bar(class_counts.index, class_counts.values)
+
+plt.title('Steel Fault Class Distribution')
+plt.xlabel('Fault Class')
+plt.ylabel('Number of Instances')
+
+# Add numbers on top of bars
+for bar in bars:
+    yval = bar.get_height()
+    plt.text(bar.get_x() + bar.get_width()/2, yval + 5, int(yval), 
+             ha='center', va='bottom', fontsize=10)
+
+plt.tight_layout()
+plt.show()
+
+# profile = ProfileReport(df_cleaned, title="df_cleaned Report")
+# profile.to_file("df_cleaned_report.html")
+
+print(df_cleaned.head())
+print(df_cleaned.describe())
+print(df_cleaned.shape)
+
+X = df_cleaned.iloc[:, :-7]  
+y = df_cleaned.iloc[:, -7:]
 
 # scaler = StandardScaler()
-# df_standardized = pd.DataFrame(scaler.fit_transform(df_cleaned), columns=df_cleaned.columns)
-    
- ####################   
- 
+# df_standardized = pd.DataFrame(scaler.fit_transform(df_cleaned), columns=df_cleaned.columns)  
 # Perform train-test split (e.g., 80% train, 20% test)
-
-
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=23)
 
 # Check shapes
@@ -183,9 +232,12 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-bestK = 0
-bestAcc = 0.0
-    
+
+
+# ************************************************************************************
+# *************************** Model Evaluation + Parameter Tuning ********************
+# ************************************************************************************
+
 for k in range(1,10):
     # Step 2: Train KNN
     knn = KNeighborsClassifier(n_neighbors=k)
@@ -205,38 +257,31 @@ for k in range(1,10):
     # Step 6: Output
     print(f"Average of diagonal (mean class-wise accuracy) for KNN with k = {k}: {avg_diag:.4f}")
     
-    disp = ConfusionMatrixDisplay(confusion_matrix=conf_matrix)
-    disp.plot(cmap='Blues', xticks_rotation=45)
-    plt.title(f"Relative Confusion Matrix for KNN Classifier for {k}")
-    plt.show()
-        
+    bestK = 0
+    bestAcc = 0.0
     if avg_diag > bestAcc:
         bestK, bestAcc = k, avg_diag
 
 
 
-
-    
-# Step 7: Plot
-
 print(f"After iterating through the values of K, the best ones is {bestK}")
 
- # Step 2: Train KNN
+
 knn = KNeighborsClassifier(n_neighbors=bestK)
 knn.fit(X_train_scaled, y_train)
 
-# Step 3: Predict
+
 y_pred = knn.predict(X_test_scaled)
 
-# Step 4: Convert one-hot to class labels
+
 y_test_labels = np.argmax(y_test, axis=1)
 y_pred_labels = np.argmax(y_pred, axis=1)
 
-# Step 5: Confusion Matrix
+
 conf_matrix = confusion_matrix(y_test_labels, y_pred_labels, normalize='true')
 avg_diag = np.trace(conf_matrix) / conf_matrix.shape[0]
 
-# Step 6: Output
+
 print(f"Average of diagonal (mean class-wise accuracy) for KNN with k = {bestK}: {avg_diag:.4f}")
 
 
