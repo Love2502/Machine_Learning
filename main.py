@@ -4,9 +4,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from ucimlrepo import fetch_ucirepo
 
+from sklearn.naive_bayes import GaussianNB
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
@@ -70,7 +70,7 @@ plt.show()
 # ==============================================================================
 # The last 7 columns are one-hot encoded target variables (7 fault types).
 X = steel_data.iloc[:, :-7]          # All columns except the last 7 → features
-y_onehot = steel_data.iloc[:, -7:]   # Last 7 columns → one-hot fault labels
+y_onehot = steel_data.iloc[:, -7:]   # Last 7 columns ,one-hot fault labels
 # For Naive Bayes, we need a flat integer label.  np.argmax selects the index
 # of “1” in each row, resulting in 0–6 integer labels.
 y_flat = np.argmax(y_onehot.values, axis=1)
@@ -113,7 +113,10 @@ def train_and_test(features):
     # To get mean class‐wise accuracy, sum diagonal (correct rate per class),
     # then divide by number of classes (=7).
     acc = np.trace(cm) / cm.shape[0]
-    print(f"Features: {features} -> Accuracy: {acc:.4f}")
+    
+    # Format the output with fixed width for alignment (Not important)
+    features_str = str(features).ljust(150)  
+    print(f"Features: {features_str} Accuracy: {acc:>7.4f}") 
     return acc
 
 def forward_feature_selection(all_feats, max_feats):
@@ -150,6 +153,79 @@ print("Selected features:", selected_features)
 # Keep only the selected features in X
 X = steel_data[selected_features]
 
+
+# =============================================================================
+#                            Data Cleaning
+# =============================================================================
+
+# print("\n================= Removing the Outlier =================")
+
+# df_features_selected = pd.concat([X,y_onehot], axis=1)
+
+# # Remove outliers
+# def outliars(data):
+#     for col in data.select_dtypes(include='number').columns:
+#         q1 = data[col].quantile(0.25)
+#         q3 = data[col].quantile(0.75)
+#         iqr = q3 - q1
+#         lower = q1 - 1.5 * iqr
+#         upper = q3 + 1.5 * iqr
+#         data = data[(data[col] >= lower) & (data[col] <= upper)]
+#     return data
+
+# df_cleaned = outliars(df_features_selected)
+
+# cleaned_classes = df_cleaned[df_cleaned.columns[-7:]]
+
+
+# =============================================================================
+#                   Data Visualization of the cleaned data
+# =============================================================================
+
+# print("\n================= Visualizing the Data after cleaning =================")
+
+# class_counts = cleaned_classes.sum()
+
+# # Bar plot
+# plt.figure(figsize=(10, 6))
+# bars = plt.bar(class_counts.index, class_counts.values)
+
+# plt.title('Steel Fault Class Distribution after Outlier removal')
+# plt.xlabel('Fault Class')
+# plt.ylabel('Number of Instances')
+
+# # Add numbers on top of bars
+# for bar in bars:
+#     yval = bar.get_height()
+#     plt.text(bar.get_x() + bar.get_width()/2, yval + 5, int(yval), 
+#              ha='center', va='bottom', fontsize=10)
+
+# plt.tight_layout()
+# plt.show()
+
+
+# # This code was used to generate reports on the data after outliers were removed
+# '''
+# from ydata_profiling import ProfileReport
+
+# profile = ProfileReport(df_features_selected, title="df_features_selected Report")
+# profile.to_file("df_features_selected_report.html")
+
+# profile = ProfileReport(df_cleaned, title="df_cleaned Report")
+# profile.to_file("df_cleaned_report.html")
+# '''
+
+# print(df_cleaned.head())
+# print(df_cleaned.describe())
+# print(df_cleaned.shape)
+
+# X = df_cleaned.iloc[:, :-7]  
+# y_onehot = df_cleaned.iloc[:, -2:]
+# # For Naive Bayes, we need a flat integer label.  np.argmax selects the index
+# # of “1” in each row, resulting in 0–6 integer labels.
+# y_flat = np.argmax(y_onehot.values, axis=1)
+
+
 # ==============================================================================
 # 5. Train/Test Split and Scaling (final data)
 # ==============================================================================
@@ -184,11 +260,13 @@ for k in range(1, 10):
     cm = confusion_matrix(y_test_flat, y_pred_labels, normalize='true')
     # We want the average of those 7 diagonal entries => mean class-wise accuracy
     acc = np.trace(cm) / cm.shape[0]
-    print(f"K = {k}: Accuracy = {acc:.4f}")
+    # print(f"K = {k}: Accuracy = {acc:.4f}")
+    print(f"Average of diagonal (mean class-wise accuracy) for KNN with k = {k}: {acc:.4f}")
     if acc > best_acc:
         best_k, best_acc = k, acc
 
-print(f"Best K = {best_k} with accuracy = {best_acc:.4f}")
+# print(f"Best K = {best_k} with accuracy = {best_acc:.4f}")
+print(f"After iterating through the values of K, the best ones is {best_k}")
 
 # ==============================================================================
 # 7. Evaluation Functions
@@ -235,6 +313,23 @@ def evaluate_nb(nb_model, X_train, X_test, y_train, y_test):
     plt.title("Naive Bayes Confusion Matrix")
     plt.show()
     return acc
+
+# Assuming 'selected_features' is a list of 5 feature names
+# and 'steel_data' is your full DataFrame including these features
+
+df_selected = steel_data[selected_features]
+
+plt.figure(figsize=(12, 8))
+
+for i, feature in enumerate(selected_features):
+    plt.subplot(2, 3, i + 1)
+    plt.scatter(df_selected.index, df_selected[feature], color='teal', alpha=0.6)
+    plt.title(feature)
+    plt.xlabel("Index")
+    plt.ylabel("Value")
+
+plt.tight_layout()
+plt.show()
 
 # ==============================================================================
 # 8. Final Model Comparison (with best K from above)
