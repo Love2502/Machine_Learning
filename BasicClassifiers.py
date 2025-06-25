@@ -15,7 +15,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 # ==============================================================================
 # 1. Load Dataset (from file if exists, else download from UCI)
 # ==============================================================================
-file_path = os.path.join("data", "Faults.csv")
+file_path = os.path.join("data/data", "Faults.csv")
 
 if os.path.exists(file_path):
     print("Loading dataset from local directory.")
@@ -24,7 +24,7 @@ else:
     print("Dataset not found. Downloading from UCI repository.")
     dataset = fetch_ucirepo(id=198)
     steel_data = pd.concat([dataset.data.features, dataset.data.targets], axis=1)
-    os.makedirs("data", exist_ok=True)
+    os.makedirs("data/data", exist_ok=True)
     steel_data.to_csv(file_path, index=False)
 
 # ==============================================================================
