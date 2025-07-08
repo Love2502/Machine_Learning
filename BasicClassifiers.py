@@ -13,6 +13,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 # ==============================================================================
+# Setup Output Directory for Plots
+# ==============================================================================
+os.makedirs("plots", exist_ok=True)
+
+# ==============================================================================
 # 1. Load Dataset (from file if exists, else download from UCI)
 # ==============================================================================
 file_path = os.path.join("data/data", "Faults.csv")
@@ -41,6 +46,7 @@ plt.plot(label_series.reset_index(drop=True), marker='.', linestyle='none')
 plt.title('Fault Class Distribution by Row Index')
 plt.ylabel('Class')
 plt.xlabel('Index')
+# plt.savefig("plots/fault_class_distribution.svg", format="svg")
 plt.show()
 
 class_counts = steel_data[steel_data.columns[-7:]].sum()
@@ -53,6 +59,7 @@ for bar in bars:
     plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 5,
              int(bar.get_height()), ha='center')
 plt.tight_layout()
+# plt.savefig("plots/fault_class_counts.svg", format="svg")
 plt.show()
 
 # ==============================================================================
@@ -78,64 +85,59 @@ def score_knn(features):
     cm = confusion_matrix(y_test, y_pred, normalize='true')
     return np.trace(cm) / cm.shape[0]
 
-def score_nb(features):
-    X_train, X_test, y_train, y_test = train_test_split(
-        X[features], y_flat, test_size=0.3, random_state=42
-    )
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    nb = GaussianNB()
-    nb.fit(X_train_scaled, y_train)
-    y_pred = nb.predict(X_test_scaled)
-    cm = confusion_matrix(y_test, y_pred, normalize='true')
-    return np.trace(cm) / cm.shape[0]
+def feature_selection(all_features, score_fn, max_features=5):
+    selected = []
+    best_score = float("-inf")
+    print("=== feature selection ===\n")
 
-def forward_feature_selection(all_features, score_fn, max_features=5):
-    selected, best_score = [], -1
     while len(selected) < max_features:
-        candidates = []
+        # ---- Forward step ----
+        print(f"Forward step (selected={selected}, best_score={best_score:.4f})")
+        fwd_candidates = []
         for f in all_features:
             if f not in selected:
-                score = score_fn(selected + [f])
-                candidates.append((f, score))
-        best_feat, score = max(candidates, key=lambda x: x[1])
-        if score > best_score:
-            selected.append(best_feat)
-            best_score = score
+                s = score_fn(selected + [f])
+                fwd_candidates.append((f, s))
+                print(f"  Trying to add '{f}': score = {s:.4f}")
+        best_f, best_f_score = max(fwd_candidates, key=lambda x: x[1])
+
+        if best_f_score > best_score:
+            selected.append(best_f)
+            best_score = best_f_score
+            print(f"  -> Added '{best_f}', new best_score = {best_score:.4f}\n")
         else:
+            print("  -> No addition improves; stopping.\n")
             break
+
+        # ---- Backward step(s) ----
+        print("  Backward step:")
+        while len(selected) > 1:
+            bwd_candidates = []
+            for f in selected:
+                subset = [feat for feat in selected if feat != f]
+                s = score_fn(subset)
+                bwd_candidates.append((f, s))
+                print(f"    Trying to remove '{f}': score = {s:.4f}")
+            # pick the removal that gives highest score
+            worst_f, worst_f_score = max(bwd_candidates, key=lambda x: x[1])
+
+            if worst_f_score > best_score:
+                selected.remove(worst_f)
+                best_score = worst_f_score
+                print(f"    -> Removed '{worst_f}', new best_score = {best_score:.4f}\n")
+            else:
+                print("    -> No removal improves; end backward step.\n")
+                break
+
+    print(f"Final selected features ({len(selected)}): {selected}\n")
     return selected
 
-def backward_feature_elimination(initial_features, score_fn):
-    features = list(initial_features)
-    best_score = score_fn(features)
-    while len(features) > 1:
-        scores = []
-        for f in features:
-            temp = [feat for feat in features if feat != f]
-            score = score_fn(temp)
-            scores.append((f, score))
-        worst_feat, score = min(scores, key=lambda x: x[1])
-        if score < best_score:
-            break
-        features.remove(worst_feat)
-        best_score = score
-    return features
 
+# --- Example usage with your KNN scorer ---
 features = list(X.columns)
+knn_final = feature_selection(features, score_knn, max_features=10)
 
-print("\n--- KNN Feature Selection ---")
-knn_forward = forward_feature_selection(features, score_knn)
-knn_backward = backward_feature_elimination(knn_forward, score_knn)
-print("KNN Forward Selected:", knn_forward)
-print("KNN Final Features (Backward Reduced):", knn_backward)
-
-print("\n--- Naive Bayes Feature Selection ---")
-nb_forward = forward_feature_selection(features, score_nb)
-nb_backward = backward_feature_elimination(nb_forward, score_nb)
-print("NB Forward Selected:", nb_forward)
-print("NB Final Features (Backward Reduced):", nb_backward)
+knn_backward = knn_final
 
 selected_features = knn_backward
 X = steel_data[selected_features]
@@ -159,7 +161,7 @@ y_test_1hot = pd.get_dummies(y_test_flat)
 # ==============================================================================
 print("\n--- KNN Hyperparameter Tuning ---")
 best_k, best_acc = 0, 0
-for k in range(1, 10):
+for k in range(1, 24):
     knn = KNeighborsClassifier(n_neighbors=k)
     knn.fit(X_train_scaled, y_train_1hot)
     y_pred = knn.predict(X_test_scaled)
@@ -175,6 +177,8 @@ print(f"Best K: {best_k}")
 # ==============================================================================
 # 7. Evaluation Functions
 # ==============================================================================
+import matplotlib.patches as patches
+
 def evaluate_knn(knn_model, X_train, X_test, y_train, y_test):
     knn_model.fit(X_train, y_train)
     y_pred = knn_model.predict(X_test)
@@ -183,22 +187,35 @@ def evaluate_knn(knn_model, X_train, X_test, y_train, y_test):
     cm = confusion_matrix(y_true, y_pred_labels, normalize='true')
     acc = np.trace(cm) / cm.shape[0]
     print(f"KNN Accuracy: {acc:.2f}")
-    ConfusionMatrixDisplay(confusion_matrix=cm).plot(cmap='Blues')
-    plt.title("KNN Confusion Matrix")
-    plt.show()
-    return acc
 
-def evaluate_nb(nb_model, X_train, X_test, y_train, y_test):
-    nb_model.fit(X_train, y_train)
-    y_pred = nb_model.predict(X_test)
-    cm = confusion_matrix(y_test, y_pred, normalize='true')
-    acc = np.trace(cm) / cm.shape[0]
-    print(f"Naive Bayes Accuracy: {acc:.2f}")
-    ConfusionMatrixDisplay(confusion_matrix=cm).plot(cmap='Oranges')
-    plt.title("Naive Bayes Confusion Matrix")
-    plt.show()
-    return acc
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt=".3f",
+        cmap="Blues",
+        cbar=False,
+        square=True,
+        ax=ax,
+        linewidths=0,
+        annot_kws={"fontsize": 10}
+    )
 
+    for text in ax.texts:
+        if text.get_text() == '0.000':
+            text.set_text('0')
+
+    border = patches.Rectangle((0, 0), cm.shape[0], cm.shape[1], fill=False, edgecolor='black', linewidth=2)
+    ax.add_patch(border)
+
+    plt.title("KNN Confusion Matrix", fontsize=14)
+    plt.xlabel("Predicted label")
+    plt.ylabel("True label")
+    plt.tight_layout()
+    # plt.savefig("plots/knn_confusion_matrix.svg", format="svg")
+    plt.show()
+
+    return acc
 # ==============================================================================
 # 8. Final Model Comparison
 # ==============================================================================
@@ -208,23 +225,14 @@ acc_knn = evaluate_knn(
     X_train_scaled, X_test_scaled,
     y_train_1hot, y_test_1hot
 )
-
-acc_nb = evaluate_nb(
-    GaussianNB(),
-    X_train_scaled, X_test_scaled,
-    y_train_flat, y_test_flat
-)
-
 # ==============================================================================
 # 9. Accuracy Bar Plot
 # ==============================================================================
 plt.figure(figsize=(6, 4))
-plt.bar(["KNN", "Naive Bayes"], [acc_knn, acc_nb], color=["skyblue", "orange"])
+plt.bar(["KNN"], [acc_knn], color=["skyblue"])
 plt.ylim(0, 1)
 plt.ylabel("Mean Class Accuracy")
-plt.title("Model Accuracy Comparison")
 plt.text(0, acc_knn + 0.02, f"{acc_knn:.2f}", ha='center')
-plt.text(1, acc_nb + 0.02, f"{acc_nb:.2f}", ha='center')
 plt.tight_layout()
 plt.show()
 
@@ -247,25 +255,9 @@ for i in range(0, len(feature_pairs), plots_per_fig):
 
     plt.suptitle(f"Scatter Plots: Feature Relationships ({i + 1} to {i + len(subset)})")
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    # plt.savefig(f"plots/scatter_plots_{i+1}_to_{i+len(subset)}.svg", format="svg")
     plt.show()
 
-# ==============================================================================
-# 11. Boxplots for All Features (Outlier Visualization)
-# ==============================================================================
-all_features = list(steel_data.columns[:-7])  # Exclude one-hot class columns
-num_features = len(all_features)
-
-for i in range(0, num_features, plots_per_fig):
-    subset = all_features[i:i + plots_per_fig]
-    plt.figure(figsize=(14, 10))
-    for j, feat in enumerate(subset):
-        plt.subplot(3, 2, j + 1)
-        plt.boxplot(steel_data[feat], vert=False, patch_artist=True)
-        plt.title(f"Boxplot of '{feat}'")
-        plt.xlabel("Value")
-    plt.suptitle(f"Outlier Visualization (Features {i + 1} to {i + len(subset)})")
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.show()
 
 # ==============================================================================
 # 12. Boxplots by Class (Selected Features)
@@ -281,5 +273,6 @@ for feat in selected_features:
     plt.ylabel(feat)
     plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
     plt.tight_layout()
+    # plt.savefig(f"plots/boxplot_by_class_{feat}.svg", format="svg")
     plt.show()
 
