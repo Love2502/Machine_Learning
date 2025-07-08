@@ -72,75 +72,159 @@ y_flat = np.argmax(y_onehot.values, axis=1)
 # ==============================================================================
 # 4. Feature Selection (Forward + Backward for KNN and NB)
 # ==============================================================================
-def score_knn(features):
-    X_train, X_test, y_train, y_test = train_test_split(
-        X[features], y_flat, test_size=0.3, random_state=42
-    )
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    knn = KNeighborsClassifier(n_neighbors=5)
-    knn.fit(X_train_scaled, y_train)
-    y_pred = knn.predict(X_test_scaled)
-    cm = confusion_matrix(y_test, y_pred, normalize='true')
-    return np.trace(cm) / cm.shape[0]
 
-def feature_selection(all_features, score_fn, max_features=5):
-    selected = []
-    best_score = float("-inf")
-    print("=== feature selection ===\n")
 
-    while len(selected) < max_features:
-        # ---- Forward step ----
-        print(f"Forward step (selected={selected}, best_score={best_score:.4f})")
-        fwd_candidates = []
-        for f in all_features:
-            if f not in selected:
-                s = score_fn(selected + [f])
-                fwd_candidates.append((f, s))
-                print(f"  Trying to add '{f}': score = {s:.4f}")
-        best_f, best_f_score = max(fwd_candidates, key=lambda x: x[1])
 
-        if best_f_score > best_score:
-            selected.append(best_f)
-            best_score = best_f_score
-            print(f"  -> Added '{best_f}', new best_score = {best_score:.4f}\n")
-        else:
-            print("  -> No addition improves; stopping.\n")
-            break
+# def score_knn(features):
+#     X_train, X_test, y_train, y_test = train_test_split(
+#         X[features], y_flat, test_size=0.3, random_state=94469
+#     )
+#     scaler = StandardScaler()
+#     X_train_scaled = scaler.fit_transform(X_train)
+#     X_test_scaled = scaler.transform(X_test)
+#     knn = KNeighborsClassifier(n_neighbors=5)
+#     knn.fit(X_train_scaled, y_train)
+#     y_pred = knn.predict(X_test_scaled)
+#     cm = confusion_matrix(y_test, y_pred, normalize='true')
+#     return np.trace(cm) / cm.shape[0]
 
-        # ---- Backward step(s) ----
-        print("  Backward step:")
-        while len(selected) > 1:
-            bwd_candidates = []
-            for f in selected:
-                subset = [feat for feat in selected if feat != f]
-                s = score_fn(subset)
-                bwd_candidates.append((f, s))
-                print(f"    Trying to remove '{f}': score = {s:.4f}")
-            # pick the removal that gives highest score
-            worst_f, worst_f_score = max(bwd_candidates, key=lambda x: x[1])
 
-            if worst_f_score > best_score:
-                selected.remove(worst_f)
-                best_score = worst_f_score
-                print(f"    -> Removed '{worst_f}', new best_score = {best_score:.4f}\n")
+# def feature_selection(all_features, score_fn, max_features=5):
+#     selected = []
+#     best_score = float("-inf")
+#     print("=== feature selection ===\n")
+
+#     while len(selected) < max_features:
+#         # ---- Forward step ----
+#         print(f"Forward step (selected={selected}, best_score={best_score:.4f})")
+#         fwd_candidates = []
+#         for f in all_features:
+#             if f not in selected:
+#                 s = score_fn(selected + [f])
+#                 fwd_candidates.append((f, s))
+#                 print(f"  Trying to add '{f}': score = {s:.4f}")
+#         best_f, best_f_score = max(fwd_candidates, key=lambda x: x[1])
+
+#         if best_f_score > best_score:
+#             selected.append(best_f)
+#             best_score = best_f_score
+#             print(f"  -> Added '{best_f}', new best_score = {best_score:.4f}\n")
+#         else:
+#             print("  -> No addition improves; stopping.\n")
+#             break
+
+#         # ---- Backward step(s) ----
+#         print("  Backward step:")
+#         while len(selected) > 1:
+#             bwd_candidates = []
+#             for f in selected:
+#                 subset = [feat for feat in selected if feat != f]
+#                 s = score_fn(subset)
+#                 bwd_candidates.append((f, s))
+#                 print(f"    Trying to remove '{f}': score = {s:.4f}")
+#             # pick the removal that gives highest score
+#             worst_f, worst_f_score = max(bwd_candidates, key=lambda x: x[1])
+
+#             if worst_f_score > best_score:
+#                 selected.remove(worst_f)
+#                 best_score = worst_f_score
+#                 print(f"    -> Removed '{worst_f}', new best_score = {best_score:.4f}\n")
+#             else:
+#                 print("    -> No removal improves; end backward step.\n")
+#                 break
+
+#     print(f"Final selected features ({len(selected)}): {selected}\n")
+#     return selected
+
+
+from sklearn.model_selection import StratifiedKFold
+from sklearn.base import clone
+
+def evaluate_features_with_k(features, k, cv_splits=5):
+    """
+    Perform cross-validation with standardization and return average classwise classification rate.
+    """
+    skf = StratifiedKFold(n_splits=cv_splits, shuffle=True, random_state=42)
+    avg_diagonal = []
+
+    for train_idx, test_idx in skf.split(X[features], y_flat):
+        X_train, X_test = X.iloc[train_idx][features], X.iloc[test_idx][features]
+        y_train, y_test = y_flat[train_idx], y_flat[test_idx]
+
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+
+        knn = KNeighborsClassifier(n_neighbors=k)
+        knn.fit(X_train_scaled, y_train)
+        y_pred = knn.predict(X_test_scaled)
+
+        cm = confusion_matrix(y_test, y_pred, normalize='true')
+        avg_diagonal.append(np.trace(cm) / cm.shape[0])  # average per-class acc
+
+    return np.mean(avg_diagonal)
+
+
+def forward_feature_selection_k_optimization(all_features, max_features=10):
+    """
+    For each k from 1 to 24, perform forward selection and keep best k and features.
+    """
+    best_global_score = -np.inf
+    best_global_k = None
+    best_global_features = []
+
+    for k in [x for x in range(1, 25) if x % 2 != 0]:
+        selected = []
+        current_best_score = -np.inf
+        print(f"\n=== Forward Feature Selection for K = {k} ===")
+
+        while len(selected) < max_features:
+            candidates = []
+            for feat in all_features:
+                if feat not in selected:
+                    test_features = selected + [feat]
+                    score = evaluate_features_with_k(test_features, k)
+                    candidates.append((feat, score))
+                    print(f"  Testing '{feat}' -> score: {score:.4f}")
+
+            best_feat, best_score = max(candidates, key=lambda x: x[1])
+
+            if best_score > current_best_score:
+                selected.append(best_feat)
+                current_best_score = best_score
+                print(f"  -> Selected '{best_feat}', score = {best_score:.4f}")
             else:
-                print("    -> No removal improves; end backward step.\n")
                 break
 
-    print(f"Final selected features ({len(selected)}): {selected}\n")
-    return selected
+        print(f"Finished selection for k = {k}. Score = {current_best_score:.4f} | Features: {selected}")
+
+        if current_best_score > best_global_score:
+            best_global_score = current_best_score
+            best_global_k = k
+            best_global_features = selected.copy()
+
+    print(f"\n\n=== Best Overall ===")
+    print(f"Best K: {best_global_k}")
+    print(f"Best Score: {best_global_score:.4f}")
+    print(f"Best Features: {best_global_features}")
+    return best_global_k, best_global_features
 
 
-# --- Example usage with your KNN scorer ---
+# # --- Example usage with your KNN scorer ---
+# features = list(X.columns)
+# knn_final = feature_selection(features, score_knn, max_features=10)
+
+# knn_backward = knn_final
+
+# selected_features = knn_backward
+# X = steel_data[selected_features]
+
+
 features = list(X.columns)
-knn_final = feature_selection(features, score_knn, max_features=10)
+best_k, best_features = forward_feature_selection_k_optimization(features, max_features=10)
+X = steel_data[best_features]
 
-knn_backward = knn_final
 
-selected_features = knn_backward
-X = steel_data[selected_features]
 
 # ==============================================================================
 # 5. Train/Test Split and Scaling
